@@ -2,10 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, DollarSign, ShoppingBag, Users, TrendingUp, Coffee } from 'lucide-react';
 import Layout from '@/components/Layout';
-import { ChartContainer as Chart } from '@/components/ui/chart';
+import { ChartContainer } from '@/components/ui/chart';
 import { Card } from '@/components/ui/card';
-
 import { useNavigate } from 'react-router-dom';
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface DashboardData {
   totalAlunos: number;
@@ -36,6 +36,15 @@ const mockData: DashboardData = {
     { nome: "Salgadinho", vendas: 27 },
     { nome: "Pão de queijo", vendas: 25 },
   ]
+};
+
+const chartConfig = {
+  vendas: {
+    color: '#3b82f6' // blue
+  },
+  produtos: {
+    color: '#10b981' // green
+  }
 };
 
 const Dashboard: React.FC = () => {
@@ -131,51 +140,34 @@ const Dashboard: React.FC = () => {
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Vendas por dia</h3>
             <div className="h-80">
-              <Chart
-                options={{
-                  chart: {
-                    type: 'bar',
-                  },
-                  colors: ['#3b82f6'],
-                  xaxis: {
-                    categories: data?.vendasPorDia.map(d => d.name) || [],
-                  },
-                }}
-                series={[{
-                  name: 'Vendas',
-                  data: data?.vendasPorDia.map(d => d.vendas) || [],
-                }]}
-                type="bar"
-                height="100%"
-              />
+              <ChartContainer config={chartConfig}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={data?.vendasPorDia || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="vendas" fill="#3b82f6" name="Vendas" />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </div>
           </Card>
           
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Produtos Populares</h3>
             <div className="h-80">
-              <Chart
-                options={{
-                  chart: {
-                    type: 'bar',
-                  },
-                  colors: ['#10b981'],
-                  xaxis: {
-                    categories: data?.produtosPopulares.map(p => p.nome) || [],
-                  },
-                  plotOptions: {
-                    bar: {
-                      horizontal: true,
-                    }
-                  }
-                }}
-                series={[{
-                  name: 'Vendas',
-                  data: data?.produtosPopulares.map(p => p.vendas) || [],
-                }]}
-                type="bar"
-                height="100%"
-              />
+              <ChartContainer config={chartConfig}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={data?.produtosPopulares || []} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="nome" type="category" />
+                    <Tooltip />
+                    <Bar dataKey="vendas" fill="#10b981" name="Vendas" />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </div>
           </Card>
         </div>
