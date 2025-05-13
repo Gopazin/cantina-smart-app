@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
-import { BarChart, DollarSign, ShoppingBag, Users, TrendingUp } from 'lucide-react';
+import { BarChart, DollarSign, ShoppingBag, Users, TrendingUp, Coffee } from 'lucide-react';
 import Layout from '@/components/Layout';
-import { Chart } from '@/components/ui/chart';
+import { ChartContainer as Chart } from '@/components/ui/chart';
 import { Card } from '@/components/ui/card';
 
 import { useNavigate } from 'react-router-dom';
