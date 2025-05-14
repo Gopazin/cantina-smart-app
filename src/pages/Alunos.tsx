@@ -4,36 +4,41 @@ import { useToast } from '@/hooks/use-toast';
 import Layout from '@/components/Layout';
 import { PlusCircle, Search, Edit, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-
-interface Aluno {
-  id: number;
-  nome: string;
-  turma: string;
-}
+import { Aluno, Responsavel } from '@/types';
 
 // Simulated data for demonstration
 const alunosMock: Aluno[] = [
-  { id: 1, nome: 'Ana Silva', turma: '5º Ano A' },
-  { id: 2, nome: 'Bruno Santos', turma: '3º Ano B' },
-  { id: 3, nome: 'Carla Oliveira', turma: '7º Ano A' },
+  { id: 1, nome: 'Ana Silva', turma: '5º Ano A', responsavel_id: 1 },
+  { id: 2, nome: 'Bruno Santos', turma: '3º Ano B', responsavel_id: 2 },
+  { id: 3, nome: 'Carla Oliveira', turma: '7º Ano A', responsavel_id: 3 },
   { id: 4, nome: 'Daniel Lima', turma: '9º Ano C' },
-  { id: 5, nome: 'Elena Martins', turma: '2º Ano A' },
+  { id: 5, nome: 'Elena Martins', turma: '2º Ano A', responsavel_id: 1 },
+];
+
+// Simulated responsaveis data
+const responsaveisMock: Responsavel[] = [
+  { id: 1, nome: 'Maria Silva', email: 'maria.silva@email.com', telefone: '(11) 99999-1111' },
+  { id: 2, nome: 'João Santos', email: 'joao.santos@email.com', telefone: '(11) 99999-2222' },
+  { id: 3, nome: 'Paula Oliveira', email: 'paula.oliveira@email.com', telefone: '(11) 99999-3333' },
 ];
 
 const Alunos: React.FC = () => {
   const [nome, setNome] = useState('');
   const [turma, setTurma] = useState('');
+  const [responsavelId, setResponsavelId] = useState<string>('');
   const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const { toast } = useToast();
 
-  // Fetch alunos on component mount
+  // Fetch alunos and responsaveis on component mount
   useEffect(() => {
     // Simulate API call
     setTimeout(() => {
       setAlunos(alunosMock);
+      setResponsaveis(responsaveisMock);
       setLoading(false);
     }, 500);
   }, []);
@@ -48,15 +53,17 @@ const Alunos: React.FC = () => {
       return;
     }
 
-    const newAluno = {
+    const newAluno: Aluno = {
       id: alunos.length > 0 ? Math.max(...alunos.map(a => a.id)) + 1 : 1,
       nome,
       turma,
+      ...(responsavelId ? { responsavel_id: parseInt(responsavelId) } : {})
     };
 
     setAlunos([newAluno, ...alunos]);
     setNome('');
     setTurma('');
+    setResponsavelId('');
 
     toast({
       title: "Aluno adicionado",
@@ -68,6 +75,7 @@ const Alunos: React.FC = () => {
     setEditingId(aluno.id);
     setNome(aluno.nome);
     setTurma(aluno.turma);
+    setResponsavelId(aluno.responsavel_id ? aluno.responsavel_id.toString() : '');
   };
 
   const handleUpdateAluno = () => {
@@ -81,12 +89,19 @@ const Alunos: React.FC = () => {
     }
 
     setAlunos(alunos.map(aluno => 
-      aluno.id === editingId ? { ...aluno, nome, turma } : aluno
+      aluno.id === editingId ? 
+        { 
+          ...aluno, 
+          nome, 
+          turma,
+          ...(responsavelId ? { responsavel_id: parseInt(responsavelId) } : { responsavel_id: undefined })
+        } : aluno
     ));
     
     setEditingId(null);
     setNome('');
     setTurma('');
+    setResponsavelId('');
     
     toast({
       title: "Aluno atualizado",
@@ -109,12 +124,21 @@ const Alunos: React.FC = () => {
     setEditingId(null);
     setNome('');
     setTurma('');
+    setResponsavelId('');
+  };
+
+  // Get responsavel name by id
+  const getResponsavelName = (id?: number): string => {
+    if (!id) return "Sem responsável";
+    const responsavel = responsaveis.find(r => r.id === id);
+    return responsavel ? responsavel.nome : "Não encontrado";
   };
 
   // Filter alunos based on search query
   const filteredAlunos = alunos.filter(aluno => 
     aluno.nome.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    aluno.turma.toLowerCase().includes(searchQuery.toLowerCase())
+    aluno.turma.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    getResponsavelName(aluno.responsavel_id).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -127,7 +151,7 @@ const Alunos: React.FC = () => {
 
         <Card className="p-6">
           <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Aluno' : 'Cadastrar Novo Aluno'}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label htmlFor="nome" className="block text-sm font-medium text-gray-700 mb-1">
                 Nome Completo
@@ -153,6 +177,24 @@ const Alunos: React.FC = () => {
                 value={turma}
                 onChange={e => setTurma(e.target.value)}
               />
+            </div>
+            <div>
+              <label htmlFor="responsavel" className="block text-sm font-medium text-gray-700 mb-1">
+                Responsável
+              </label>
+              <select
+                id="responsavel"
+                className="form-select"
+                value={responsavelId}
+                onChange={e => setResponsavelId(e.target.value)}
+              >
+                <option value="">— Selecione um responsável —</option>
+                {responsaveis.map(responsavel => (
+                  <option key={responsavel.id} value={responsavel.id}>
+                    {responsavel.nome}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-end">
               {editingId ? (
@@ -217,6 +259,7 @@ const Alunos: React.FC = () => {
                     <th>ID</th>
                     <th>Nome</th>
                     <th>Turma</th>
+                    <th>Responsável</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -226,6 +269,7 @@ const Alunos: React.FC = () => {
                       <td>{aluno.id}</td>
                       <td>{aluno.nome}</td>
                       <td>{aluno.turma}</td>
+                      <td>{getResponsavelName(aluno.responsavel_id)}</td>
                       <td>
                         <div className="flex space-x-2">
                           <button

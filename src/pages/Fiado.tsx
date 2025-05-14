@@ -2,29 +2,31 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import Layout from '@/components/Layout';
-import { DollarSign, ArrowDownCircle, TrendingUp } from 'lucide-react';
+import { DollarSign, ArrowDownCircle, TrendingUp, Mail, PhoneCall, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-
-interface Devedor {
-  aluno_id: number;
-  nome: string;
-  saldo: number;
-  historico: Array<{
-    id: number;
-    tipo: 'venda' | 'pagamento';
-    valor: number;
-    data: string;
-    descricao: string;
-  }>;
-}
+import { Aluno, Devedor, Responsavel } from '@/types';
+import { enviarNotificacao } from '@/services/notification';
 
 // Simulated data for demonstration
+const alunosMock: Aluno[] = [
+  { id: 1, nome: 'Ana Silva', turma: '5º Ano A', responsavel_id: 1 },
+  { id: 2, nome: 'Bruno Santos', turma: '3º Ano B', responsavel_id: 2 },
+  { id: 3, nome: 'Carla Oliveira', turma: '7º Ano A', responsavel_id: 3 },
+];
+
+const responsaveisMock: Responsavel[] = [
+  { id: 1, nome: 'Maria Silva', email: 'maria.silva@email.com', telefone: '(11) 99999-1111' },
+  { id: 2, nome: 'João Santos', email: 'joao.santos@email.com', telefone: '(11) 99999-2222' },
+  { id: 3, nome: 'Paula Oliveira', email: 'paula.oliveira@email.com', telefone: '(11) 99999-3333' },
+];
+
 const devedoresMock: Devedor[] = [
   {
     aluno_id: 1,
     nome: 'Ana Silva',
     saldo: 45.50,
+    responsavel_id: 1,
     historico: [
       { id: 1, tipo: 'venda', valor: 11.00, data: '2023-05-10 08:30:00', descricao: 'Coxinha (2x)' },
       { id: 2, tipo: 'venda', valor: 5.00, data: '2023-05-09 09:15:00', descricao: 'Refrigerante' },
@@ -36,6 +38,7 @@ const devedoresMock: Devedor[] = [
     aluno_id: 2,
     nome: 'Bruno Santos',
     saldo: 23.75,
+    responsavel_id: 2,
     historico: [
       { id: 5, tipo: 'venda', valor: 8.75, data: '2023-05-10 11:45:00', descricao: 'Suco e salgado' },
       { id: 6, tipo: 'venda', valor: 15.00, data: '2023-05-08 09:30:00', descricao: 'Lanche completo' },
@@ -45,6 +48,7 @@ const devedoresMock: Devedor[] = [
     aluno_id: 3,
     nome: 'Carla Oliveira',
     saldo: 18.00,
+    responsavel_id: 3,
     historico: [
       { id: 7, tipo: 'venda', valor: 6.00, data: '2023-05-11 09:10:00', descricao: 'Bolo' },
       { id: 8, tipo: 'venda', valor: 12.00, data: '2023-05-09 10:20:00', descricao: 'Sanduíche' },
@@ -56,17 +60,43 @@ const devedoresMock: Devedor[] = [
 
 const Fiado: React.FC = () => {
   const [devedores, setDevedores] = useState<Devedor[]>([]);
+  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDevedor, setSelectedDevedor] = useState<Devedor | null>(null);
   const [pagamentoAberto, setPagamentoAberto] = useState(false);
   const [valorPagamento, setValorPagamento] = useState('');
+  const [notificando, setNotificando] = useState<number | null>(null);
   const { toast } = useToast();
 
   // Fetch data on component mount
   useEffect(() => {
     // Simulate API call
     setTimeout(() => {
-      setDevedores(devedoresMock);
+      setAlunos(alunosMock);
+      setResponsaveis(responsaveisMock);
+      
+      // Enriquecer os devedores com informações do responsável
+      const devedoresCompletos = devedoresMock.map(devedor => {
+        const responsavelId = devedor.responsavel_id || 
+          alunos.find(a => a.id === devedor.aluno_id)?.responsavel_id;
+          
+        if (responsavelId) {
+          const responsavel = responsaveisMock.find(r => r.id === responsavelId);
+          if (responsavel) {
+            return {
+              ...devedor,
+              responsavel_id: responsavel.id,
+              responsavel_nome: responsavel.nome,
+              responsavel_email: responsavel.email,
+              responsavel_telefone: responsavel.telefone
+            };
+          }
+        }
+        return devedor;
+      });
+      
+      setDevedores(devedoresCompletos);
       setLoading(false);
     }, 500);
   }, []);
@@ -131,6 +161,55 @@ const Fiado: React.FC = () => {
     });
   };
 
+  const handleEnviarNotificacao = async (devedorId: number) => {
+    const devedor = devedores.find(d => d.aluno_id === devedorId);
+    if (!devedor || !devedor.responsavel_id) return;
+    
+    const aluno = alunos.find(a => a.id === devedor.aluno_id);
+    const responsavel = responsaveis.find(r => r.id === devedor.responsavel_id);
+    
+    if (!aluno || !responsavel) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar notificação",
+        description: "Não foi possível encontrar as informações do aluno ou responsável.",
+      });
+      return;
+    }
+    
+    setNotificando(devedorId);
+    
+    try {
+      const result = await enviarNotificacao({
+        responsavel,
+        aluno,
+        saldoTotal: devedor.saldo
+      });
+      
+      if (result.some(r => r.success)) {
+        toast({
+          title: "Notificação enviada",
+          description: `${responsavel.nome} foi notificado sobre o saldo devedor de ${aluno.nome}.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro ao enviar notificação",
+          description: "Não foi possível enviar a notificação. Verifique as configurações.",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao enviar notificação:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar notificação",
+        description: "Ocorreu um erro ao tentar enviar a notificação.",
+      });
+    } finally {
+      setNotificando(null);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -163,14 +242,50 @@ const Fiado: React.FC = () => {
                   key={devedor.aluno_id} 
                   className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between">
                     <div>
                       <h3 className="font-semibold text-lg">{devedor.nome}</h3>
-                      <p className="text-muted-foreground text-sm">{devedor.historico.length} transações</p>
+                      
+                      {/* Informações do responsável */}
+                      {devedor.responsavel_nome ? (
+                        <div className="mt-1 mb-2">
+                          <p className="text-sm text-muted-foreground">
+                            Responsável: {devedor.responsavel_nome}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {devedor.responsavel_email && (
+                              <a 
+                                href={`mailto:${devedor.responsavel_email}`} 
+                                className="text-xs flex items-center text-blue-600 hover:text-blue-800"
+                                title={devedor.responsavel_email}
+                              >
+                                <Mail size={12} className="mr-1" />
+                                {devedor.responsavel_email.length > 20 ? 
+                                  `${devedor.responsavel_email.substring(0, 20)}...` : 
+                                  devedor.responsavel_email}
+                              </a>
+                            )}
+                            {devedor.responsavel_telefone && (
+                              <a 
+                                href={`tel:${devedor.responsavel_telefone}`}
+                                className="text-xs flex items-center text-blue-600 hover:text-blue-800"
+                              >
+                                <PhoneCall size={12} className="mr-1" />
+                                {devedor.responsavel_telefone}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-amber-500 mt-1">
+                          Nenhum responsável vinculado
+                        </p>
+                      )}
+                      <p className="text-sm text-muted-foreground">{devedor.historico.length} transações</p>
                     </div>
-                    <div className="text-right">
+                    <div className="md:text-right mt-3 md:mt-0">
                       <div className="font-bold text-lg text-amber-600">R$ {devedor.saldo.toFixed(2)}</div>
-                      <div className="flex justify-end space-x-2 mt-2">
+                      <div className="flex md:justify-end space-x-2 mt-2">
                         <Dialog>
                           <DialogTrigger asChild>
                             <button
@@ -208,6 +323,27 @@ const Fiado: React.FC = () => {
                             </div>
                           </DialogContent>
                         </Dialog>
+                        
+                        {/* Botão para enviar notificação */}
+                        {devedor.responsavel_nome && (
+                          <button
+                            className="flex items-center text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
+                            onClick={() => handleEnviarNotificacao(devedor.aluno_id)}
+                            disabled={notificando === devedor.aluno_id}
+                          >
+                            {notificando === devedor.aluno_id ? (
+                              <span className="flex items-center">
+                                <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-blue-700 mr-1"></div>
+                                Enviando...
+                              </span>
+                            ) : (
+                              <>
+                                <Mail size={14} className="mr-1" />
+                                Notificar
+                              </>
+                            )}
+                          </button>
+                        )}
                         
                         <Dialog open={pagamentoAberto && selectedDevedor?.aluno_id === devedor.aluno_id} onOpenChange={(open) => {
                           setPagamentoAberto(open);

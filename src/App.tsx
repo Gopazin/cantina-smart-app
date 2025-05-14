@@ -12,6 +12,7 @@ import Responsaveis from "./pages/Responsaveis";
 import Produtos from "./pages/Produtos";
 import Vendas from "./pages/Vendas";
 import Fiado from "./pages/Fiado";
+import Comunicacoes from "./pages/Comunicacoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,14 @@ const App = () => (
             element={
               <GuardedRoute>
                 <Fiado />
+              </GuardedRoute>
+            }
+          />
+          <Route 
+            path="/comunicacoes" 
+            element={
+              <GuardedRoute>
+                <Comunicacoes />
               </GuardedRoute>
             }
           />

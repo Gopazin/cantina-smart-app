@@ -1,7 +1,7 @@
 
 import React, { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, Coffee, Users, ShoppingBag, DollarSign, CreditCard, BarChart2, LogOut } from 'lucide-react';
+import { Menu, X, Coffee, Users, ShoppingBag, DollarSign, CreditCard, BarChart2, Mail, LogOut } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,6 +31,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: 'Produtos', icon: <Coffee size={20} />, path: '/produtos' },
     { name: 'Vendas', icon: <ShoppingBag size={20} />, path: '/vendas' },
     { name: 'Fiado', icon: <CreditCard size={20} />, path: '/fiado' },
+    { name: 'Comunicações', icon: <Mail size={20} />, path: '/comunicacoes' },
   ];
 
   const toggleSidebar = () => {

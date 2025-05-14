@@ -2,39 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import Layout from '@/components/Layout';
-import { DollarSign, CreditCard, ShoppingCart } from 'lucide-react';
+import { DollarSign, CreditCard, ShoppingCart, Mail } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-
-interface Aluno {
-  id: number;
-  nome: string;
-  turma: string;
-}
-
-interface Produto {
-  id: number;
-  nome: string;
-  categoria: string;
-  preco: number;
-}
-
-interface Venda {
-  id: number;
-  aluno_id: number;
-  aluno_nome: string;
-  produto_id: number;
-  produto_nome: string;
-  quantidade: number;
-  total: number;
-  forma_pagamento: string;
-  data: string;
-}
+import { Aluno, Responsavel, Produto, Venda, Devedor } from '@/types';
+import { notificarVendaFiado } from '@/services/notification';
 
 // Simulated data for demonstration
 const alunosMock: Aluno[] = [
-  { id: 1, nome: 'Ana Silva', turma: '5º Ano A' },
-  { id: 2, nome: 'Bruno Santos', turma: '3º Ano B' },
-  { id: 3, nome: 'Carla Oliveira', turma: '7º Ano A' },
+  { id: 1, nome: 'Ana Silva', turma: '5º Ano A', responsavel_id: 1 },
+  { id: 2, nome: 'Bruno Santos', turma: '3º Ano B', responsavel_id: 2 },
+  { id: 3, nome: 'Carla Oliveira', turma: '7º Ano A', responsavel_id: 3 },
 ];
 
 const produtosMock: Produto[] = [
@@ -50,6 +27,35 @@ const vendasMock: Venda[] = [
     quantidade: 1, total: 5.00, forma_pagamento: 'pix', data: '2023-05-10 09:15:00' },
 ];
 
+const responsaveisMock: Responsavel[] = [
+  { id: 1, nome: 'Maria Silva', email: 'maria.silva@email.com', telefone: '(11) 99999-1111' },
+  { id: 2, nome: 'João Santos', email: 'joao.santos@email.com', telefone: '(11) 99999-2222' },
+  { id: 3, nome: 'Paula Oliveira', email: 'paula.oliveira@email.com', telefone: '(11) 99999-3333' },
+];
+
+const devedoresMock: Devedor[] = [
+  {
+    aluno_id: 1,
+    nome: 'Ana Silva',
+    saldo: 45.50,
+    responsavel_id: 1,
+    historico: [
+      { id: 1, tipo: 'venda', valor: 11.00, data: '2023-05-10 08:30:00', descricao: 'Coxinha (2x)' },
+      { id: 2, tipo: 'venda', valor: 5.00, data: '2023-05-09 09:15:00', descricao: 'Refrigerante' },
+    ]
+  },
+  {
+    aluno_id: 2,
+    nome: 'Bruno Santos',
+    saldo: 23.75,
+    responsavel_id: 2,
+    historico: [
+      { id: 5, tipo: 'venda', valor: 8.75, data: '2023-05-10 11:45:00', descricao: 'Suco e salgado' },
+      { id: 6, tipo: 'venda', valor: 15.00, data: '2023-05-08 09:30:00', descricao: 'Lanche completo' },
+    ]
+  },
+];
+
 const Vendas: React.FC = () => {
   const [alunoId, setAlunoId] = useState('');
   const [produtoId, setProdutoId] = useState('');
@@ -58,6 +64,8 @@ const Vendas: React.FC = () => {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [vendas, setVendas] = useState<Venda[]>([]);
+  const [responsaveis, setResponsaveis] = useState<Responsavel[]>([]);
+  const [devedores, setDevedores] = useState<Devedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null);
   const [totalVenda, setTotalVenda] = useState(0);
@@ -70,6 +78,8 @@ const Vendas: React.FC = () => {
       setAlunos(alunosMock);
       setProdutos(produtosMock);
       setVendas(vendasMock);
+      setResponsaveis(responsaveisMock);
+      setDevedores(devedoresMock);
       setLoading(false);
     }, 500);
   }, []);
@@ -86,7 +96,7 @@ const Vendas: React.FC = () => {
     }
   }, [produtoId, quantidade, produtos]);
 
-  const handleRegistrarVenda = () => {
+  const handleRegistrarVenda = async () => {
     if (!alunoId || !produtoId || quantidade < 1) {
       toast({
         variant: "destructive",
@@ -123,7 +133,78 @@ const Vendas: React.FC = () => {
       data: formattedDate,
     };
 
+    // Adicionar à lista de vendas
     setVendas([novaVenda, ...vendas]);
+    
+    // Se for fiado, atualizar ou criar registro de devedor
+    if (formaPagamento === 'fiado') {
+      let updatedDevedores = [...devedores];
+      let devedor = devedores.find(d => d.aluno_id === aluno.id);
+      
+      if (devedor) {
+        // Atualizar devedor existente
+        devedor = {
+          ...devedor,
+          saldo: devedor.saldo + novaVenda.total,
+          historico: [
+            {
+              id: Math.max(...devedor.historico.map(h => h.id)) + 1,
+              tipo: 'venda',
+              valor: novaVenda.total,
+              data: formattedDate,
+              descricao: `${novaVenda.produto_nome} (${novaVenda.quantidade}x)`,
+            },
+            ...devedor.historico,
+          ],
+        };
+        
+        updatedDevedores = updatedDevedores.map(d => 
+          d.aluno_id === aluno.id ? devedor! : d
+        );
+      } else {
+        // Criar novo devedor
+        const novoDevedor: Devedor = {
+          aluno_id: aluno.id,
+          nome: aluno.nome,
+          saldo: novaVenda.total,
+          responsavel_id: aluno.responsavel_id,
+          historico: [
+            {
+              id: 1,
+              tipo: 'venda',
+              valor: novaVenda.total,
+              data: formattedDate,
+              descricao: `${novaVenda.produto_nome} (${novaVenda.quantidade}x)`,
+            },
+          ],
+        };
+        
+        updatedDevedores = [novoDevedor, ...updatedDevedores];
+      }
+      
+      setDevedores(updatedDevedores);
+      
+      // Enviar notificação para o responsável se existir um
+      if (aluno.responsavel_id) {
+        const responsavel = responsaveis.find(r => r.id === aluno.responsavel_id);
+        const devedorAtual = updatedDevedores.find(d => d.aluno_id === aluno.id);
+        
+        if (responsavel && devedorAtual) {
+          try {
+            const result = await notificarVendaFiado(responsavel, aluno, novaVenda, devedorAtual.saldo);
+            
+            if (result.some(r => r.success)) {
+              toast({
+                title: "Notificação enviada",
+                description: `O responsável ${responsavel.nome} foi notificado sobre esta compra.`,
+              });
+            }
+          } catch (error) {
+            console.error("Erro ao enviar notificação:", error);
+          }
+        }
+      }
+    }
     
     // Reset form
     setAlunoId('');
@@ -135,6 +216,15 @@ const Vendas: React.FC = () => {
       title: "Venda registrada",
       description: `Venda de ${produto.nome} para ${aluno.nome} registrada com sucesso.`,
     });
+  };
+
+  // Get responsavel name by aluno id
+  const getResponsavelName = (alunoId: number): string => {
+    const aluno = alunos.find(a => a.id === alunoId);
+    if (!aluno || !aluno.responsavel_id) return "Sem responsável";
+    
+    const responsavel = responsaveis.find(r => r.id === aluno.responsavel_id);
+    return responsavel ? responsavel.nome : "Não encontrado";
   };
 
   return (
@@ -169,6 +259,7 @@ const Vendas: React.FC = () => {
                       {alunos.map(aluno => (
                         <option key={aluno.id} value={aluno.id}>
                           {aluno.nome} ({aluno.turma})
+                          {aluno.responsavel_id ? ` - Resp: ${getResponsavelName(aluno.id)}` : ''}
                         </option>
                       ))}
                     </select>
@@ -252,6 +343,12 @@ const Vendas: React.FC = () => {
                         </span>
                       </label>
                     </div>
+                    {formaPagamento === 'fiado' && parseInt(alunoId) > 0 && !alunos.find(a => a.id === parseInt(alunoId))?.responsavel_id && (
+                      <div className="mt-2 text-amber-500 text-sm flex items-center">
+                        <Mail className="mr-1" size={16} />
+                        <span>Aluno sem responsável cadastrado. Não será possível enviar notificação.</span>
+                      </div>
+                    )}
                   </div>
 
                   <div>
