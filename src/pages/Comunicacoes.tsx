@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import Layout from '@/components/Layout';
@@ -6,21 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Mail, MessageSquare, Bell, Settings, CheckCircle, Info } from 'lucide-react';
 import { getNotificacaoConfig } from '@/services/notification';
-
-interface NotificacaoConfig {
-  ativa: boolean;
-  metodos: {
-    email: boolean;
-    whatsapp: boolean;
-  };
-  frequencia: 'imediato' | 'diario' | 'semanal';
-  conteudo: {
-    incluirDetalhesCompra: boolean;
-    incluirSaldoTotal: boolean;
-    assunto: string;
-    mensagem: string;
-  };
-}
+import { NotificacaoConfig } from '@/types';
 
 const Comunicacoes: React.FC = () => {
   const [config, setConfig] = useState<NotificacaoConfig>(getNotificacaoConfig());
@@ -71,13 +56,13 @@ Data: ${new Date().toLocaleString('pt-BR')}
   // Restaurar configurações padrão
   const restaurarPadrao = () => {
     if (window.confirm("Tem certeza que deseja restaurar as configurações padrão?")) {
-      const defaultConfig = {
+      const defaultConfig: NotificacaoConfig = {
         ativa: true,
         metodos: {
           email: true,
           whatsapp: false
         },
-        frequencia: 'imediato',
+        frequencia: 'imediato' as 'imediato' | 'diario' | 'semanal',
         conteudo: {
           incluirDetalhesCompra: true,
           incluirSaldoTotal: true,
@@ -193,7 +178,7 @@ Data: ${new Date().toLocaleString('pt-BR')}
                       <input 
                         type="radio" 
                         name="frequencia" 
-                        className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" 
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" 
                         checked={config.frequencia === 'diario'}
                         onChange={() => setConfig({...config, frequencia: 'diario'})}
                       />
@@ -203,7 +188,7 @@ Data: ${new Date().toLocaleString('pt-BR')}
                       <input 
                         type="radio" 
                         name="frequencia" 
-                        className="w-4 h-4 text-primary border-gray-300 focus:ring-primary" 
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" 
                         checked={config.frequencia === 'semanal'}
                         onChange={() => setConfig({...config, frequencia: 'semanal'})}
                       />
